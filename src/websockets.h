@@ -7,12 +7,13 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include "current.h"
 
 extern "C" {
-#include "third_party/wsServer/include/base64.h"
-#include "third_party/wsServer/include/sha1.h"
-#include "third_party/wsServer/include/utf8.h"
-#include "third_party/wsServer/include/ws.h"
+#include "include/base64.h"
+#include "include/sha1.h"
+#include "include/utf8.h"
+#include "include/ws.h"
 }
 
 template <int, typename Callable, typename Ret, typename... Args>

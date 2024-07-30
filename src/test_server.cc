@@ -1,4 +1,4 @@
-#include "src/websockets.h"
+#include "websockets.h"
 
 int main() {
   auto server = WebsocketServer(

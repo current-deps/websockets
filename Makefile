@@ -1,24 +1,12 @@
-CFLAGS = -I. \
-		 -g \
-		 -lssl \
-		 -lcrypto \
-		 -lpthread \
-		 -lm \
-		 -lstdc++ \
-		 -std=c++17
-
 all:
-	mkdir -p build;
-	# temporary. TODO: add cmake
-	gcc -o build/ws tests/test.cpp third_party/wsServer/libws.a $(CFLAGS)
+	mkdir -p build; cd build && cmake ../ && cmake --build .
 
 run: all
-	./build/ws
+	./build/test_server
 
 
 clean:
-	rm -f build/ws
-
+	rm -f build
 
 test:
 	pytest .
