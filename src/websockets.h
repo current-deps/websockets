@@ -104,11 +104,8 @@ public:
   ~WebsocketServer() = default;
   static std::vector<uint8_t> bytes_to_vector(const unsigned char *data,
                                               uint64_t size) {
-    std::vector<uint8_t> result(0, size);
-    for (int i = 0; i <= size; i++) {
-      result.push_back(static_cast<uint8_t>(data[i]));
-    }
-    return std::move(result);
+    auto p = reinterpret_cast<uint8_t const*>(data);
+    return std::vector<uint8_t>(p, p + size);
   }
 
   void start() { ws_socket(&ws_); }
