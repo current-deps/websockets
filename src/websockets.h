@@ -7,7 +7,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "current.h"
 
 extern "C" {
 #include "include/base64.h"
