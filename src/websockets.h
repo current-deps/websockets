@@ -46,8 +46,8 @@ public:
   ~WebsocketClient() = default;
 
   int State() { return ws_get_state(ws_); };
-  std::string Address() { return std::string(ws_getaddress(ws_)); }
-  std::string Port() { return std::string(ws_getport(ws_)); }
+  std::string Address() { return ws_getaddress(ws_); }
+  std::string Port() { return ws_getport(ws_); }
 
   void SendText(std::vector<uint8_t> buffer) {
     ws_sendframe_txt(ws_, (char *)(buffer.data()));
@@ -68,7 +68,7 @@ public:
           on_data,
       std::function<void(WebsocketClient &client)> on_connected,
       std::function<void(WebsocketClient &client)> on_disconnected,
-      int port = 8080, std::string host = std::string("0.0.0.0"),
+      int port = 8080, std::string host = "0.0.0.0",
       int n_threads = 0, int timeout_ms = 1000) {
     ws_.host = host.c_str();
     ws_.port = port;
