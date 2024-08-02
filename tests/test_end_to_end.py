@@ -8,7 +8,7 @@ import websockets
 
 
 total_runs = int(os.getenv("WS_TEST_TOTAL_RUNS", 10))
-max_threads = int(os.getenv("WS_TEST_N_THREADS", 5))
+max_threads = int(os.getenv("WS_TEST_N_THREADS", 32))
 results = []
 
 

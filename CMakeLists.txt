@@ -15,6 +15,7 @@ ExternalProject_Add(libws
   CMAKE_CACHE_ARGS
     -DFOO_ENABLE_BAR:BOOL=1
   INSTALL_COMMAND ""
+  CONFIGURE_COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}/wsServer/include && sed -i "s/#define MAX_CLIENTS    8/#define MAX_CLIENTS    16384/" ws.h
   )
 
 # test server

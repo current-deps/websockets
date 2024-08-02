@@ -9,7 +9,7 @@ run: all
 	./build/test_server
 
 clean:
-	rm -f build
+	rm -rf build
 
 test:
 	pytest .
