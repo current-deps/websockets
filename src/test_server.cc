@@ -3,6 +3,8 @@
 int main() {
   auto server = WebsocketServer(
       [](WebsocketClient &client, std::vector<uint8_t> data, int type) {
+        // add end of string
+        data.push_back('\0');
         std::cout << "WebSocket Message: " << std::string((char *)(data.data())) << std::endl;
         std::string answer = "Hello from server!";
         std::vector<uint8_t> to_send(answer.begin(), answer.end());

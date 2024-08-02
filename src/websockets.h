@@ -49,6 +49,7 @@ class WebsocketClient {
   int State() { return ws_get_state(ws_); };
   std::string Address() { return ws_getaddress(ws_); }
   std::string Port() { return ws_getport(ws_); }
+  void Close() { ws_close_client(ws_); }
 
   void SendText(std::vector<uint8_t> buffer) { ws_sendframe_txt(ws_, (char *)(buffer.data())); }
   void SendBin(std::vector<uint8_t> buffer) { ws_sendframe_bin(ws_, (char *)(buffer.data()), buffer.size()); }
