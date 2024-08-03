@@ -9,7 +9,7 @@ find_package(Threads REQUIRED)
 # Add ws c-server repo
 include(ExternalProject)
 ExternalProject_Add(libws
-  GIT_REPOSITORY "https://github.com/Theldus/wsServer"
+  GIT_REPOSITORY "https://github.com/current-deps/wsServerForkedFromTheldus"
   SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/wsServer
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/wsServer
   CMAKE_CACHE_ARGS
