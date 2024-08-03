@@ -1,12 +1,12 @@
 #pragma once
 
+#include <cstdint>  // uint8_t
 #include <functional>
-#include <iostream>
+#include <iostream>  // IWYU pragma: keep
 #include <new>
 #include <string>
-#include <type_traits>
 #include <utility>
-#include <vector>
+#include <vector>  // IWYU pragma: keep
 
 extern "C" {
 #include "include/base64.h"
