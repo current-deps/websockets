@@ -37,29 +37,47 @@ Fn *fnptr(Callable &&c) {
   return fnptr_<N>(std::forward<Callable>(c), (Fn *)nullptr);
 }
 
-class WebsocketClient {
+class WebsocketClient final {
  private:
   ws_cli_conn_t *ws_;
 
  public:
   explicit WebsocketClient(ws_cli_conn_t *ws) { ws_ = ws; }
+
   WebsocketClient(const WebsocketClient &) = default;
   ~WebsocketClient() = default;
 
-  int State() { return ws_get_state(ws_); };
-  std::string Address() { return ws_getaddress(ws_); }
-  std::string Port() { return ws_getport(ws_); }
+  // TODO: Reconsider making `WebsocketClient`-s movable. Perhaps move it all into some `std::unique_ptr<Impl>`?
+  WebsocketClient(WebsocketClient &&) = delete;
+  WebsocketClient &operator=(const WebsocketClient &) = delete;
+  WebsocketClient &operator=(WebsocketClient &&) = delete;
+
+  // QUESTION: Why? Can't this `Close()` just be the destructor?
   void Close() { ws_close_client(ws_); }
 
-  void SendText(std::vector<uint8_t> buffer) { ws_sendframe_txt(ws_, (char *)(buffer.data())); }
-  void SendBin(std::vector<uint8_t> buffer) { ws_sendframe_bin(ws_, (char *)(buffer.data()), buffer.size()); }
+  int State() const { return ws_get_state(ws_); };
+  std::string Address() const { return ws_getaddress(ws_); }
+  std::string Port() const { return ws_getport(ws_); }
+
+  void SendText(std::vector<uint8_t> buffer) { ws_sendframe_txt(ws_, reinterpret_cast<const char *>(buffer.data())); }
+  void SendBin(std::vector<uint8_t> buffer) {
+    ws_sendframe_bin(ws_, reinterpret_cast<const char *>(buffer.data()), buffer.size());
+  }
 };
 
-class WebsocketServer {
+class WebsocketServer final {
  protected:
   struct ws_server ws_;
 
  public:
+  WebsocketServer(const WebsocketServer &) = delete;
+  ~WebsocketServer() = default;
+
+  // TODO: Reconsider making `WebsocketServer`-s movable.
+  WebsocketServer(WebsocketServer &&) = delete;
+  WebsocketServer &operator=(const WebsocketServer &) = delete;
+  WebsocketServer &operator=(WebsocketServer &&) = delete;
+
   explicit WebsocketServer(std::function<void(WebsocketClient &client, std::vector<uint8_t> data, int type)> on_data,
                            std::function<void(WebsocketClient &client)> on_connected,
                            std::function<void(WebsocketClient &client)> on_disconnected,
@@ -70,11 +88,7 @@ class WebsocketServer {
     ws_.host = host.c_str();
     ws_.port = port;
 
-    /*
-     * *If the .thread_loop is != 0, a new thread is created
-     * to handle new connections and ws_socket() becomes
-     * non-blocking.
-     */
+    // If `.thread_loop` is not zero, a new thread handles each new connection, and `ws_socket()` is non-blocking.
     ws_.thread_loop = n_threads;
     ws_.timeout_ms = timeout_ms;
 
@@ -93,8 +107,6 @@ class WebsocketServer {
           on_data(wrapper, buffer_cpp, type);
         });
   }
-  WebsocketServer(const WebsocketClient &) = delete;
-  ~WebsocketServer() = default;
   static std::vector<uint8_t> bytes_to_vector(const unsigned char *data, uint64_t size) {
     auto p = reinterpret_cast<uint8_t const *>(data);
     return std::vector<uint8_t>(p, p + size);
