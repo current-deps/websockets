@@ -6,25 +6,24 @@ set (CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Threads REQUIRED)
 
-# Add ws c-server repo
-include(ExternalProject)
-ExternalProject_Add(libws
-  GIT_REPOSITORY "https://github.com/current-deps/wsServerForkedFromTheldus"
-  SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/wsServer
-  BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/wsServer
-  CMAKE_CACHE_ARGS
-    -DFOO_ENABLE_BAR:BOOL=1
-  INSTALL_COMMAND ""
-  CONFIGURE_COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}/wsServer/include && sed -i "s/#define MAX_CLIENTS    8/#define MAX_CLIENTS    16384/" ws.h
-  )
+set (lib "wsServerForkedFromTheldus")
+set (repo "https://github.com/current-deps/${lib}")
+
+if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/${lib}" AND IS_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${lib}")
+  message(STATUS "Using `${lib}` from build dir.")
+else()
+  execute_process(OUTPUT_QUIET ERROR_QUIET COMMAND git clone ${repo} WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
+
+add_subdirectory("${CMAKE_CURRENT_BINARY_DIR}/${lib}")
+target_compile_definitions(ws PRIVATE MAX_CLIENTS=64)
 
 # test server
 if(ENABLE_TEST)
-  link_directories(${CMAKE_CURRENT_BINARY_DIR}/wsServer)
   add_executable(test_server src/test_server.cc)
-  add_dependencies(test_server libws)
-  target_include_directories(test_server PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/wsServer)
-  target_link_libraries(test_server ${CMAKE_CURRENT_BINARY_DIR}/wsServer/libws.a)
+  add_dependencies(test_server ws)
+  target_include_directories(test_server PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/${lib})
+  target_link_libraries(test_server ws)
 endif(ENABLE_TEST)
 unset(ENABLE_TEST)
 
