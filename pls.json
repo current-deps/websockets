@@ -1,0 +1,5 @@
+{
+  "import": {
+    "wsServerForkedFromTheldus": "https://github.com/current-deps/wsServerForkedFromTheldus"
+  }
+}
