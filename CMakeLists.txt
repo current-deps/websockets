@@ -16,7 +16,7 @@ else()
 endif()
 
 add_subdirectory("${CMAKE_CURRENT_BINARY_DIR}/${lib}")
-target_compile_definitions(ws PRIVATE MAX_CLIENTS=64)
+target_compile_definitions(ws PRIVATE MAX_CLIENTS=16384)
 
 # test server
 if(ENABLE_TEST)
