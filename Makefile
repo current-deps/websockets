@@ -3,7 +3,7 @@
 CLANG_FORMAT=$(shell echo "$${CLANG_FORMAT:-clang-format}")
 
 all:
-	mkdir -p build; cd build && cmake -DENABLE_TEST=ON .. && cmake --build .
+	cmake -DENABLE_TEST=ON -B build . && cmake --build build
 
 run: all
 	./build/test_server

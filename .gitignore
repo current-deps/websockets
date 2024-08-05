@@ -38,3 +38,12 @@ build/
 current/
 googletest/
 wsServer/
+
+# Added automatically by `pls`. Okay to push to git.
+.debug
+.pls
+.release
+.vscode
+
+# Added automatically by `pls`. Okay to push to git.
+wsServerForkedFromTheldus
