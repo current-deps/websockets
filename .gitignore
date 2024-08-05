@@ -44,6 +44,4 @@ wsServer/
 .pls
 .release
 .vscode
-
-# Added automatically by `pls`. Okay to push to git.
 wsServerForkedFromTheldus
