@@ -1,12 +1,12 @@
 #pragma once
 
+#include <cstdint>  // uint8_t
 #include <functional>
-#include <iostream>
+#include <iostream>  // IWYU pragma: keep
 #include <new>
 #include <string>
-#include <type_traits>
 #include <utility>
-#include <vector>
+#include <vector>  // IWYU pragma: keep
 
 extern "C" {
 #include "include/base64.h"
@@ -15,86 +15,91 @@ extern "C" {
 #include "include/ws.h"
 }
 
-template <int, typename Callable, typename Ret, typename... Args>
-auto fnptr_(Callable &&c, Ret (*)(Args...)) {
-  static std::decay_t<Callable> storage = std::forward<Callable>(c);
-  static bool used = false;
-  if (used) {
-    using type = decltype(storage);
-    storage.~type();
-    new (&storage) type(std::forward<Callable>(c));
-  }
-  used = true;
-
-  return [](Args... args) -> Ret {
-    auto &c = *std::launder(&storage);
-    return Ret(c(std::forward<Args>(args)...));
-  };
-}
-
-template <typename Fn, int N = 0, typename Callable>
-Fn *fnptr(Callable &&c) {
-  return fnptr_<N>(std::forward<Callable>(c), (Fn *)nullptr);
-}
-
-class WebsocketClient {
+class WebsocketClient final {
  private:
-  ws_cli_conn_t *ws_;
+  ws_connection *ws_;
 
  public:
-  explicit WebsocketClient(ws_cli_conn_t *ws) { ws_ = ws; }
+  explicit WebsocketClient(ws_connection *ws) { ws_ = ws; }
+
   WebsocketClient(const WebsocketClient &) = default;
   ~WebsocketClient() = default;
 
-  int State() { return ws_get_state(ws_); };
-  std::string Address() { return ws_getaddress(ws_); }
-  std::string Port() { return ws_getport(ws_); }
+  // TODO: Reconsider making `WebsocketClient`-s movable. Perhaps move it all into some `std::unique_ptr<Impl>`?
+  WebsocketClient(WebsocketClient &&) = delete;
+  WebsocketClient &operator=(const WebsocketClient &) = delete;
+  WebsocketClient &operator=(WebsocketClient &&) = delete;
+
+  // QUESTION: Why? Can't this `Close()` just be the destructor?
   void Close() { ws_close_client(ws_); }
 
-  void SendText(std::vector<uint8_t> buffer) { ws_sendframe_txt(ws_, (char *)(buffer.data())); }
-  void SendBin(std::vector<uint8_t> buffer) { ws_sendframe_bin(ws_, (char *)(buffer.data()), buffer.size()); }
+  int State() const { return ws_get_state(ws_); };
+  std::string Address() const { return ws_getaddress(ws_); }
+  std::string Port() const { return ws_getport(ws_); }
+
+  void SendText(std::vector<uint8_t> buffer) { ws_sendframe_txt(ws_, reinterpret_cast<const char *>(buffer.data())); }
+  void SendBin(std::vector<uint8_t> buffer) {
+    ws_sendframe_bin(ws_, reinterpret_cast<const char *>(buffer.data()), buffer.size());
+  }
 };
 
-class WebsocketServer {
+class WebsocketServer final {
  protected:
   struct ws_server ws_;
 
+  // NOTE(dkorolev): A `vector` here is an overkill and ineffective, need a `Chunk` / `span` / `string_view` IMHO.
+  using on_connected_t = std::function<void(WebsocketClient &client)>;
+  using on_disconnected_t = std::function<void(WebsocketClient &client)>;
+  using on_data_t = std::function<void(WebsocketClient &client, std::vector<uint8_t> data, int type)>;
+
+  const on_connected_t on_connected_;
+  const on_disconnected_t on_disconnected_;
+  const on_data_t on_data_;
+
  public:
-  explicit WebsocketServer(std::function<void(WebsocketClient &client, std::vector<uint8_t> data, int type)> on_data,
-                           std::function<void(WebsocketClient &client)> on_connected,
-                           std::function<void(WebsocketClient &client)> on_disconnected,
+  WebsocketServer(const WebsocketServer &) = delete;
+  ~WebsocketServer() = default;
+
+  // TODO: Reconsider making `WebsocketServer`-s movable.
+  WebsocketServer(WebsocketServer &&) = delete;
+  WebsocketServer &operator=(const WebsocketServer &) = delete;
+  WebsocketServer &operator=(WebsocketServer &&) = delete;
+
+  explicit WebsocketServer(on_data_t on_data,
+                           on_connected_t on_connected,
+                           on_disconnected_t on_disconnected,
                            int port = 8080,
                            std::string host = "0.0.0.0",
                            int n_threads = 0,
-                           int timeout_ms = 1000) {
+                           int timeout_ms = 1000)
+      : on_data_(on_data), on_connected_(on_connected), on_disconnected_(on_disconnected) {
     ws_.host = host.c_str();
     ws_.port = port;
+    ws_.extra_void_ptr = this;
 
-    /*
-     * *If the .thread_loop is != 0, a new thread is created
-     * to handle new connections and ws_socket() becomes
-     * non-blocking.
-     */
+    // If `.thread_loop` is not zero, a new thread handles each new connection, and `ws_socket()` is non-blocking.
     ws_.thread_loop = n_threads;
     ws_.timeout_ms = timeout_ms;
 
-    ws_.evs.onopen = fnptr<void(ws_cli_conn_t *)>([on_connected](ws_cli_conn_t *client) {
-      auto wrapper = WebsocketClient(client);
-      on_connected(wrapper);
-    });
-    ws_.evs.onclose = fnptr<void(ws_cli_conn_t *)>([on_disconnected](ws_cli_conn_t *client) {
-      auto wrapper = WebsocketClient(client);
-      on_disconnected(wrapper);
-    });
-    ws_.evs.onmessage = fnptr<void(ws_cli_conn_t *, const unsigned char *, uint64_t, int)>(
-        [on_data](ws_cli_conn_t *client, const unsigned char *data, uint64_t size, int type) {
-          auto buffer_cpp = bytes_to_vector(data, size);
-          auto wrapper = WebsocketClient(client);
-          on_data(wrapper, buffer_cpp, type);
-        });
+    // NOTE(dkorolev): Non-capturing lambdas can be cast into C-style callbacks directly.
+    ws_.evs.onopen = [](ws_connection *c) {
+      WebsocketClient wsc(c);
+      reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c))->on_connected_(wsc);
+    };
+
+    ws_.evs.onclose = [](ws_connection *c) {
+      WebsocketClient wsc(c);
+      reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c))->on_disconnected_(wsc);
+    };
+
+    ws_.evs.onmessage = [](ws_connection *c, const unsigned char *data, uint64_t size, int type) {
+      WebsocketClient wsc(c);
+      auto buffer_cpp = bytes_to_vector(data, size);
+      reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c))
+          ->on_data_(wsc, buffer_cpp, type);
+    };
   }
-  WebsocketServer(const WebsocketClient &) = delete;
-  ~WebsocketServer() = default;
+
   static std::vector<uint8_t> bytes_to_vector(const unsigned char *data, uint64_t size) {
     auto p = reinterpret_cast<uint8_t const *>(data);
     return std::vector<uint8_t>(p, p + size);
