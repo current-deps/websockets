@@ -15,6 +15,8 @@ extern "C" {
 #include "include/ws.h"
 }
 
+static std::string default_host = "0.0.0.0";
+
 class WebsocketClient final {
  private:
   ws_connection *ws_;
@@ -69,10 +71,12 @@ class WebsocketServer final {
                            on_connected_t on_connected,
                            on_disconnected_t on_disconnected,
                            int port = 8080,
-                           std::string host = "0.0.0.0",
+                           const std::string &host = default_host,
                            int n_threads = 0,
                            int timeout_ms = 1000)
-      : on_data_(on_data), on_connected_(on_connected), on_disconnected_(on_disconnected) {
+      : on_data_(std::move(on_data)),
+        on_connected_(std::move(on_connected)),
+        on_disconnected_(std::move(on_disconnected)) {
     ws_.host = host.c_str();
     ws_.port = port;
     ws_.extra_void_ptr = this;
@@ -82,27 +86,32 @@ class WebsocketServer final {
     ws_.timeout_ms = timeout_ms;
 
     // NOTE(dkorolev): Non-capturing lambdas can be cast into C-style callbacks directly.
-    ws_.evs.onopen = [](ws_connection *c) {
-      WebsocketClient wsc(c);
-      reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c))->on_connected_(wsc);
-    };
-
-    ws_.evs.onclose = [](ws_connection *c) {
-      WebsocketClient wsc(c);
-      reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c))->on_disconnected_(wsc);
-    };
-
-    ws_.evs.onmessage = [](ws_connection *c, const unsigned char *data, uint64_t size, int type) {
-      WebsocketClient wsc(c);
-      auto buffer_cpp = bytes_to_vector(data, size);
-      reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c))
-          ->on_data_(wsc, buffer_cpp, type);
-    };
+    ws_.evs.onopen = StaticOnOpen;
+    ws_.evs.onclose = StaticOnClose;
+    ws_.evs.onmessage = StaticOnMessage;
   }
 
   static std::vector<uint8_t> bytes_to_vector(const unsigned char *data, uint64_t size) {
     auto p = reinterpret_cast<uint8_t const *>(data);
     return std::vector<uint8_t>(p, p + size);
+  }
+
+  static void StaticOnOpen(ws_connection *c) {
+    auto ptr = reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c));
+    WebsocketClient wsc(c);
+    ptr->on_connected_(wsc);
+  }
+  static void StaticOnMessage(ws_connection *c, const unsigned char *data, uint64_t size, int type) {
+    auto ptr = reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c));
+    WebsocketClient wsc(c);
+    auto buffer_cpp = bytes_to_vector(data, size);
+    ptr->on_data_(wsc, buffer_cpp, type);
+  }
+
+  static void StaticOnClose(ws_connection *c) {
+    auto ptr = reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c));
+    WebsocketClient wsc(c);
+    ptr->on_disconnected_(wsc);
   }
 
   void start() { ws_socket(&ws_); }
