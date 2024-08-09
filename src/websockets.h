@@ -79,7 +79,7 @@ class WebsocketServer final {
         on_disconnected_(std::move(on_disconnected)) {
     ws_.host = host.c_str();
     ws_.port = port;
-    ws_.extra_void_ptr = this;
+    ws_server_set_client_context(&ws_, this);
 
     // If `.thread_loop` is not zero, a new thread handles each new connection, and `ws_socket()` is non-blocking.
     ws_.thread_loop = n_threads;
@@ -97,19 +97,19 @@ class WebsocketServer final {
   }
 
   static void StaticOnOpen(ws_connection *c) {
-    auto ptr = reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c));
+    auto ptr = reinterpret_cast<WebsocketServer *>(ws_get_client_context(c));
     WebsocketClient wsc(c);
     ptr->on_connected_(wsc);
   }
   static void StaticOnMessage(ws_connection *c, const unsigned char *data, uint64_t size, int type) {
-    auto ptr = reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c));
+    auto ptr = reinterpret_cast<WebsocketServer *>(ws_get_client_context(c));
     WebsocketClient wsc(c);
     auto buffer_cpp = bytes_to_vector(data, size);
     ptr->on_data_(wsc, buffer_cpp, type);
   }
 
   static void StaticOnClose(ws_connection *c) {
-    auto ptr = reinterpret_cast<WebsocketServer *>(extract_extra_void_ptr_from_ws_connection(c));
+    auto ptr = reinterpret_cast<WebsocketServer *>(ws_get_client_context(c));
     WebsocketClient wsc(c);
     ptr->on_disconnected_(wsc);
   }
