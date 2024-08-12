@@ -1,5 +1,13 @@
 {
-  "import": {
-    "wsServer": "https://github.com/dkorolev/wsServer"
+  "PLS_ADD": {
+    "wsServer": "https://github.com/current-deps/wsServer"
+  },
+  "PLS_DEP": {
+    "src/test_server.cc": ["ws"]
+  },
+  "PLS_TARGET_COMPILE_DEFINITIONS": {
+    "ws": {
+      "MAX_CLIENTS": 16384
+    }
   }
 }

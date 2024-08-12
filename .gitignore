@@ -37,9 +37,9 @@ build/
 # Cloned by the build system.
 current/
 googletest/
-wsServer/
 
 # Added automatically by `pls`. Okay to push to git.
+CMakeLists.txt
 .debug
 .pls
 .release

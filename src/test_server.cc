@@ -1,3 +1,5 @@
+// NOTE(dkorolev): No `#include "pls.json'` here, as well as no `PLS_ADD` / `PLS/DEP`, since `pls.json` is used.
+
 #include "websockets.h"
 
 int main() {
