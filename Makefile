@@ -3,10 +3,10 @@
 CLANG_FORMAT=$(shell echo "$${CLANG_FORMAT:-clang-format}")
 
 all:
-	cmake -DENABLE_TEST=ON -B build . && cmake --build build
+	pls b
 
 run: all
-	./build/test_server
+	./.debug/test_server
 
 clean:
 	rm -rf build
