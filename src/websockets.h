@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>  // uint8_t
 #include <functional>
 #include <iostream>  // IWYU pragma: keep
 #include <string>
@@ -37,8 +36,8 @@ class WebsocketClient final {
   std::string Address() const { return ws_getaddress(ws_); }
   std::string Port() const { return ws_getport(ws_); }
 
-  void SendText(std::vector<uint8_t> buffer) { ws_sendframe_txt(ws_, reinterpret_cast<const char *>(buffer.data())); }
-  void SendBin(std::vector<uint8_t> buffer) {
+  void SendText(std::string_view buffer) { ws_sendframe_txt(ws_, reinterpret_cast<const char *>(buffer.data())); }
+  void SendBin(std::string_view buffer) {
     ws_sendframe_bin(ws_, reinterpret_cast<const char *>(buffer.data()), buffer.size());
   }
 };
@@ -47,10 +46,9 @@ class WebsocketServer final {
  protected:
   struct ws_server ws_;
 
-  // NOTE(dkorolev): A `vector` here is an overkill and ineffective, need a `Chunk` / `span` / `string_view` IMHO.
   using on_connected_t = std::function<void(WebsocketClient &client)>;
   using on_disconnected_t = std::function<void(WebsocketClient &client)>;
-  using on_data_t = std::function<void(WebsocketClient &client, std::vector<uint8_t> data, int type)>;
+  using on_data_t = std::function<void(WebsocketClient &client, std::string_view data, int type)>;
 
   const on_connected_t on_connected_;
   const on_disconnected_t on_disconnected_;
@@ -89,11 +87,6 @@ class WebsocketServer final {
     ws_.evs.onmessage = StaticOnMessage;
   }
 
-  static std::vector<uint8_t> bytes_to_vector(const unsigned char *data, uint64_t size) {
-    auto p = reinterpret_cast<uint8_t const *>(data);
-    return std::vector<uint8_t>(p, p + size);
-  }
-
   static void StaticOnOpen(ws_connection *c) {
     auto ptr = reinterpret_cast<WebsocketServer *>(ws_get_server_context(c));
     WebsocketClient wsc(c);
@@ -102,7 +95,7 @@ class WebsocketServer final {
   static void StaticOnMessage(ws_connection *c, const unsigned char *data, uint64_t size, int type) {
     auto ptr = reinterpret_cast<WebsocketServer *>(ws_get_server_context(c));
     WebsocketClient wsc(c);
-    auto buffer_cpp = bytes_to_vector(data, size);
+    auto buffer_cpp = std::string_view(reinterpret_cast<const char*>(data), size);
     ptr->on_data_(wsc, buffer_cpp, type);
   }
 
